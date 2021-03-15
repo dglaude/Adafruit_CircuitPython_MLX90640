@@ -1,3 +1,5 @@
+import time
+
 # SPDX-FileCopyrightText: 2019 ladyada for Adafruit Industries
 #
 # SPDX-License-Identifier: MIT
@@ -118,6 +120,7 @@ class MLX90640:  # pylint: disable=too-many-instance-attributes
         """Request both 'halves' of a frame from the sensor, merge them
         and calculate the temperature in C for each of 32x24 pixels. Placed
         into the 768-element array passed in!"""
+        start2 = time.monotonic()                       #
         emissivity = 0.95
         tr = 23.15
         mlx90640Frame = [0] * 834
@@ -129,8 +132,11 @@ class MLX90640:  # pylint: disable=too-many-instance-attributes
             # For a MLX90640 in the open air the shift is -8 degC.
             tr = self._GetTa(mlx90640Frame) - OPENAIR_TA_SHIFT
             self._CalculateTo(mlx90640Frame, emissivity, tr, framebuf)
+        stop2 = time.monotonic()                        #
+        print(" getFrame: %0.2f s" % (stop2-start2))         #
 
     def _GetFrameData(self, frameData):
+        start1 = time.monotonic()                       #
         dataReady = 0
         cnt = 0
         statusRegister = [0]
@@ -144,7 +150,8 @@ class MLX90640:  # pylint: disable=too-many-instance-attributes
         while (dataReady != 0) and (cnt < 5):
             self._I2CWriteWord(0x8000, 0x0030)
             # print("Read frame", cnt)
-            self._I2CReadWords(0x0400, frameData, end=832)
+
+            self._I2CReadWords(0x0400, frameData, end=832)  #
 
             self._I2CReadWords(0x8000, statusRegister)
             dataReady = statusRegister[0] & 0x0008
@@ -157,9 +164,14 @@ class MLX90640:  # pylint: disable=too-many-instance-attributes
         self._I2CReadWords(0x800D, controlRegister)
         frameData[832] = controlRegister[0]
         frameData[833] = statusRegister[0] & 0x0001
+
+        stop1 = time.monotonic()                        #
+        print("  _GetFrameData: %0.2f s" % (stop1-start1))         #
+
         return frameData[833]
 
     def _GetTa(self, frameData):
+########start4 = time.monotonic()                       #
         vdd = self._GetVdd(frameData)
 
         ptat = frameData[800]
@@ -173,6 +185,8 @@ class MLX90640:  # pylint: disable=too-many-instance-attributes
 
         ta = ptatArt / (1 + self.KvPTAT * (vdd - 3.3)) - self.vPTAT25
         ta = ta / self.KtPTAT + 25
+########stop4 = time.monotonic()                        #
+########print("  _GetTa: %0.2f s" % (stop4-start4))         #
         return ta
 
     def _GetVdd(self, frameData):
@@ -190,6 +204,7 @@ class MLX90640:  # pylint: disable=too-many-instance-attributes
 
     def _CalculateTo(self, frameData, emissivity, tr, result):
         # pylint: disable=too-many-locals, too-many-branches, too-many-statements
+        start3 = time.monotonic()                       #
         subPage = frameData[833]
         alphaCorrR = [0] * 4
         irDataCP = [0, 0]
@@ -338,6 +353,8 @@ class MLX90640:  # pylint: disable=too-many-instance-attributes
                 )
 
                 result[pixelNumber] = To
+        stop3 = time.monotonic()                        #
+        print("  _CalculateTo: %0.2f s" % (stop3-start3))         #
 
     # pylint: enable=too-many-locals, too-many-branches, too-many-statements
 
